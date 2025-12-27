@@ -2,13 +2,20 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files from the zeabur-backend directory
+# Set environment to production
+ENV NODE_ENV=production
+
+# Copy package files
 COPY zeabur-backend/package*.json ./
 
-RUN npm install
+# Install ONLY production dependencies
+RUN npm install --omit=dev
 
-# Copy all files from the zeabur-backend directory
+# Copy the rest of the backend code
 COPY zeabur-backend/ .
+
+# Ensure the uploads directory exists
+RUN mkdir -p uploads
 
 EXPOSE 8080
 
