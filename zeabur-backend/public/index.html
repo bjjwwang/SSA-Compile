@@ -5,35 +5,90 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zeabur Control Center</title>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 50px; background-color: #f4f4f9; }
-        .status-container { display: flex; align-items: center; margin-bottom: 30px; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .indicator { width: 15px; height: 15px; border-radius: 50%; margin-right: 10px; }
-        .connected { background-color: #4CAF50; box-shadow: 0 0 10px #4CAF50; }
-        .disconnected { background-color: #F44336; box-shadow: 0 0 10px #F44336; }
-        .upload-section { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        input[type="file"] { margin-bottom: 20px; }
-        button { padding: 10px 20px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; }
-        button:hover { background-color: #0056b3; }
-        #message { margin-top: 20px; color: #555; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 50px; background-color: #f4f4f9; color: #333; }
+        .status-container { display: flex; align-items: center; margin-bottom: 30px; padding: 15px 25px; background: white; border-radius: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .indicator { width: 12px; height: 12px; border-radius: 50%; margin-right: 12px; }
+        .connected { background-color: #4CAF50; box-shadow: 0 0 8px #4CAF50; }
+        .disconnected { background-color: #F44336; box-shadow: 0 0 8px #F44336; }
+        
+        .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); width: 100%; max-width: 500px; text-align: center; }
+        
+        .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 25px; }
+        .tab-item { padding: 10px; border: 2px solid #eee; border-radius: 6px; cursor: pointer; transition: all 0.2s; font-size: 14px; }
+        .tab-item:hover { border-color: #007bff; background: #f8fbff; }
+        .tab-item.active { border-color: #007bff; background: #007bff; color: white; }
+        
+        input[type="file"] { margin: 20px 0; width: 100%; }
+        .btn { padding: 12px 24px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 6px; font-weight: 600; width: 100%; transition: background 0.2s; }
+        .btn:hover { background-color: #0056b3; }
+        .btn-secondary { background-color: #6c757d; margin-top: 15px; }
+        .btn-secondary:hover { background-color: #5a6268; }
+        
+        #upload-view, #processing-view { display: none; }
+        #upload-view.active, #processing-view.active { display: block; }
+        
+        .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .info-text { margin: 15px 0; color: #666; font-size: 14px; }
+        .category-badge { display: inline-block; padding: 4px 12px; background: #e9ecef; border-radius: 15px; font-weight: bold; font-size: 12px; margin-top: 5px; }
     </style>
 </head>
 <body>
-    <h1>Zeabur Backend</h1>
+    <h1>SSA Compiler Service</h1>
     
     <div class="status-container">
         <div id="status-light" class="indicator disconnected"></div>
         <span id="status-text">Disconnected</span>
     </div>
 
-    <div class="upload-section">
-        <h3>Upload File to Docker Server</h3>
-        <input type="file" id="fileInput">
-        <br>
-        <button onclick="uploadFile()">Upload</button>
-        <div id="message"></div>
+    <div class="card">
+        <!-- Upload View -->
+        <div id="upload-view" class="active">
+            <h3>Submit Your Assignment/Lab</h3>
+            <p class="info-text" style="color: #888;">Note: One test every 3 minutes. Max 5 concurrent tasks server-wide.</p>
+            
+            <p style="text-align: left; font-size: 14px; margin-bottom: 10px;">Select Category:</p>
+            <div class="tabs" id="categoryTabs">
+                <div class="tab-item" data-value="Assignment-1">Assignment-1</div>
+                <div class="tab-item" data-value="Assignment-2">Assignment-2</div>
+                <div class="tab-item" data-value="Assignment-3">Assignment-3</div>
+                <div class="tab-item" data-value="Lab-1">Lab-1</div>
+                <div class="tab-item" data-value="Lab-2">Lab-2</div>
+                <div class="tab-item" data-value="Lab-3">Lab-3</div>
+            </div>
+
+            <input type="file" id="fileInput">
+            <button class="btn" onclick="uploadFile()">Upload and Compile</button>
+            <div id="message" style="margin-top: 15px; color: #d9534f;"></div>
+        </div>
+
+        <!-- Processing View -->
+        <div id="processing-view">
+            <h3 id="proc-filename">filename.c</h3>
+            <div id="proc-category" class="category-badge">Assignment-1</div>
+            
+            <div class="loading-spinner"></div>
+            <p><strong>Server is launching docker container and compiling...</strong></p>
+            <p class="info-text">Please wait for the results. This might take a minute.</p>
+            
+            <button class="btn btn-secondary" onclick="goBack()">Cancel / Go Back</button>
+        </div>
     </div>
 
     <script>
+        let selectedCategory = null;
+
+        // Tab selection logic
+        document.getElementById('categoryTabs').addEventListener('click', (e) => {
+            if (e.target.classList.contains('tab-item')) {
+                document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                selectedCategory = e.target.getAttribute('data-value');
+                document.getElementById('message').innerText = '';
+            }
+        });
+
         async function updateStatus() {
             try {
                 const res = await fetch('/status');
@@ -57,13 +112,20 @@
             const fileInput = document.getElementById('fileInput');
             const message = document.getElementById('message');
             
-            if (fileInput.files.length === 0) {
-                message.innerText = 'Please select a file first.';
+            if (!selectedCategory) {
+                message.innerText = 'Please select a category (Assignment/Lab) first.';
                 return;
             }
 
+            if (fileInput.files.length === 0) {
+                message.innerText = 'Please select a file to upload.';
+                return;
+            }
+
+            const file = fileInput.files[0];
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            formData.append('file', file);
+            formData.append('category', selectedCategory);
 
             try {
                 message.innerText = 'Uploading...';
@@ -72,17 +134,34 @@
                     body: formData
                 });
                 const data = await res.json();
+                
                 if (res.ok) {
-                    message.innerText = 'File uploaded: ' + data.filename;
+                    showProcessing(file.name, selectedCategory);
                 } else {
-                    message.innerText = 'Upload failed: ' + data.error;
+                    message.innerText = 'Upload failed: ' + (data.error || 'Unknown error');
                 }
             } catch (e) {
                 message.innerText = 'Error: ' + e.message;
             }
         }
 
-        setInterval(updateStatus, 2000);
+        function showProcessing(filename, category) {
+            document.getElementById('upload-view').classList.remove('active');
+            document.getElementById('processing-view').classList.add('active');
+            document.getElementById('proc-filename').innerText = filename;
+            document.getElementById('proc-category').innerText = category;
+        }
+
+        function goBack() {
+            if (confirm('Are you sure you want to abandon this submission?')) {
+                document.getElementById('processing-view').classList.remove('active');
+                document.getElementById('upload-view').classList.add('active');
+                document.getElementById('message').innerText = '';
+                // Optional: In a real app, you might want to notify the server to cancel the task
+            }
+        }
+
+        setInterval(updateStatus, 3000);
         updateStatus();
     </script>
 </body>

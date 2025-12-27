@@ -13,6 +13,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+// Rate limiting state
+const lastUploads = new Map(); // IP -> timestamp
+const UPLOAD_COOLDOWN = 3 * 60 * 1000; // 3 minutes
+
 // Storage for uploaded files
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -24,7 +28,9 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        cb(null, Date.now() + '-' + file.originalname);
+        const category = req.body.category || 'unknown';
+        // Format: category_timestamp-originalName
+        cb(null, `${category}_${Date.now()}-${file.originalname}`);
     }
 });
 
@@ -56,13 +62,43 @@ app.post('/heartbeat', authenticate, (req, res) => {
     res.json({ status: 'ok' });
 });
 
-// Upload endpoint (for anyone or UI)
-app.post('/upload', upload.single('file'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
+// Upload endpoint
+app.post('/upload', (req, res, next) => {
+    const userIp = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const now = Date.now();
+    
+    if (lastUploads.has(userIp)) {
+        const lastTime = lastUploads.get(userIp);
+        const waitTime = lastTime + UPLOAD_COOLDOWN - now;
+        if (waitTime > 0) {
+            const minutes = Math.floor(waitTime / 60000);
+            const seconds = Math.floor((waitTime % 60000) / 1000);
+            return res.status(429).json({ 
+                error: `Rate limit: Please wait ${minutes}m ${seconds}s before your next test.` 
+            });
+        }
     }
-    console.log(`File uploaded: ${req.file.filename}`);
-    res.json({ message: 'File uploaded successfully', filename: req.file.filename });
+    
+    // If passed, proceed to upload
+    upload.single('file')(req, res, (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+        
+        const category = req.body.category;
+        console.log(`File uploaded: ${req.file.filename} (Category: ${category}) from ${userIp}`);
+        
+        // Update rate limit timestamp
+        lastUploads.set(userIp, now);
+        
+        res.json({ 
+            message: 'File uploaded successfully', 
+            filename: req.file.filename,
+            category: category 
+        });
+    });
 });
 
 // Poll endpoint for server helper
