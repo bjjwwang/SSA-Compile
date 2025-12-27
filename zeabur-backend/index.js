@@ -32,6 +32,7 @@ const storage = multer.diskStorage({
     },
     filename: (req, file, cb) => {
         const category = req.body.category || 'unknown';
+        console.log(`Multer generating filename for category: ${category}`);
         // Format: category_timestamp-originalName
         cb(null, `${category}_${Date.now()}-${file.originalname}`);
     }

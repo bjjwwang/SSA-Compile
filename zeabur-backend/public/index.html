@@ -132,8 +132,9 @@
 
             const file = fileInput.files[0];
             const formData = new FormData();
-            formData.append('file', file);
+            // IMPORTANT: Append category BEFORE file so multer can access it in filename generator
             formData.append('category', selectedCategory);
+            formData.append('file', file);
 
             try {
                 message.innerText = 'Uploading...';
