@@ -15,7 +15,7 @@ app.use(express.static('public'));
 
 // Rate limiting state
 const lastUploads = new Map(); // IP -> timestamp
-const UPLOAD_COOLDOWN = 3 * 60 * 1000; // 3 minutes
+const UPLOAD_COOLDOWN = 30 * 1000; // 30 seconds
 
 // Task Results Storage
 const taskResults = new Map(); // filename -> result string
