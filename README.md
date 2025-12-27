@@ -10,7 +10,7 @@ cd zeabur-backend
 npm install
 npm run dev
 ```
-- **访问地址**: `http://localhost:3000`
+- **访问地址**: `http://localhost:8080`
 - **功能**: 提供上传界面，显示 Helper 是否在线。
 
 ### 2. 启动服务器助手 (辅助端)

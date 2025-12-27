@@ -6,7 +6,7 @@ const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD || 'secret123';
 
 app.use(cors());
@@ -25,6 +25,33 @@ const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
 }
+
+// Cleanup task for old files (older than 30 minutes)
+const CLEANUP_INTERVAL = 10 * 60 * 1000; // Run every 10 minutes
+const MAX_FILE_AGE = 30 * 60 * 1000; // 30 minutes
+
+function cleanupOldFiles() {
+    console.log('Running cleanup for old files in uploads...');
+    fs.readdir(uploadDir, (err, files) => {
+        if (err) return console.error('Cleanup readdir error:', err);
+        
+        const now = Date.now();
+        files.forEach(file => {
+            const filePath = path.join(uploadDir, file);
+            fs.stat(filePath, (err, stats) => {
+                if (err) return;
+                if (now - stats.mtimeMs > MAX_FILE_AGE) {
+                    fs.unlink(filePath, (err) => {
+                        if (!err) console.log(`Deleted old file: ${file}`);
+                    });
+                }
+            });
+        });
+    });
+}
+
+setInterval(cleanupOldFiles, CLEANUP_INTERVAL);
+cleanupOldFiles(); // Run once at start
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {

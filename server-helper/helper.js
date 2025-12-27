@@ -6,7 +6,7 @@ require('dotenv').config();
 
 // Configuration
 const args = process.argv.slice(2);
-const ZEABUR_URL = args[0] || process.env.ZEABUR_URL || 'http://localhost:3000';
+const ZEABUR_URL = args[0] || process.env.ZEABUR_URL || 'http://localhost:8080';
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD || 'secret123';
 const DOWNLOAD_DIR = path.join(__dirname, 'downloads');
 const POLL_INTERVAL = 5000; // 5 seconds
@@ -29,6 +29,33 @@ const pendingFiles = new Set(); // To avoid processing the same file multiple ti
 if (!fs.existsSync(DOWNLOAD_DIR)) {
     fs.mkdirSync(DOWNLOAD_DIR);
 }
+
+// Cleanup task for old downloaded files (older than 30 minutes)
+const CLEANUP_INTERVAL = 10 * 60 * 1000; // Run every 10 minutes
+const MAX_FILE_AGE = 30 * 60 * 1000; // 30 minutes
+
+function cleanupOldFiles() {
+    console.log('Running cleanup for old files in downloads...');
+    fs.readdir(DOWNLOAD_DIR, (err, files) => {
+        if (err) return console.error('Cleanup readdir error:', err);
+        
+        const now = Date.now();
+        files.forEach(file => {
+            const filePath = path.join(DOWNLOAD_DIR, file);
+            fs.stat(filePath, (err, stats) => {
+                if (err) return;
+                if (now - stats.mtimeMs > MAX_FILE_AGE) {
+                    fs.unlink(filePath, (err) => {
+                        if (!err) console.log(`Deleted old downloaded file: ${file}`);
+                    });
+                }
+            });
+        });
+    });
+}
+
+setInterval(cleanupOldFiles, CLEANUP_INTERVAL);
+cleanupOldFiles(); // Run once at start
 
 console.log(`Starting Server Helper...`);
 console.log(`Target Zeabur URL: ${ZEABUR_URL}`);
