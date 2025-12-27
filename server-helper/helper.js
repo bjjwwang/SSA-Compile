@@ -4,7 +4,8 @@ const path = require('path');
 require('dotenv').config();
 
 // Configuration
-const ZEABUR_URL = process.env.ZEABUR_URL || 'http://localhost:3000';
+const args = process.argv.slice(2);
+const ZEABUR_URL = args[0] || process.env.ZEABUR_URL || 'http://localhost:3000';
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD || 'secret123';
 const DOWNLOAD_DIR = path.join(__dirname, 'downloads');
 const POLL_INTERVAL = 5000; // 5 seconds
