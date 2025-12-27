@@ -36,9 +36,10 @@ sudo USE_SUDO=true npm run dev
 ---
 
 ## 部署到 Zeabur
-1. 在 Zeabur 上创建一个新项目，并关联 `zeabur-backend/` 目录。
-2. 在 Zeabur 变量设置中添加 `AUTH_PASSWORD`。
-3. 获取 Zeabur 给出的域名（例如 `https://my-app.zeabur.app`）。
+1. 在 Zeabur 上创建一个新项目，并关联整个仓库。
+2. Zeabur 会自动识别根目录下的 `Dockerfile`。
+3. 在 Zeabur 变量设置中添加 `AUTH_PASSWORD`。
+4. 获取 Zeabur 给出的域名（例如 `https://my-app.zeabur.app`）。
 4. **服务器端配对**: 在你的服务器上启动助手时，指定该域名：
    ```bash
    ZEABUR_URL=https://my-app.zeabur.app AUTH_PASSWORD=你的密码 npm start

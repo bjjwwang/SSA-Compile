@@ -2,12 +2,14 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
+# Copy package files from the zeabur-backend directory
+COPY zeabur-backend/package*.json ./
+
 RUN npm install
 
-COPY . .
+# Copy all files from the zeabur-backend directory
+COPY zeabur-backend/ .
 
 EXPOSE 8080
 
 CMD ["node", "index.js"]
-
