@@ -18,15 +18,20 @@ npm run dev
 ```bash
 cd server-helper
 npm install
-# 方式 A: 直接运行（本地测试，默认连接 localhost:3000）
+
+# 权限建议：为了让 Helper 能运行 Docker，建议将当前用户加入 docker 组：
+# sudo usermod -aG docker $USER (然后重启生效)
+
+# 方式 A: 直接运行（推荐，如果已配置免 sudo）
 npm run dev
 
-# 方式 B: 指定网址配对
-npm run dev http://localhost:3000
+# 方式 B: 使用 sudo 运行 (如果未配置免 sudo)
+sudo USE_SUDO=true npm run dev
 ```
 - **参数说明**: 
   - `ZEABUR_URL`: 目标后端的网址。
   - `AUTH_PASSWORD`: 约定的密码（默认 `secret123`）。
+  - `USE_SUDO`: 是否在运行 Docker 时自动加 `sudo`。
 
 ---
 
@@ -38,6 +43,14 @@ npm run dev http://localhost:3000
    ```bash
    ZEABUR_URL=https://my-app.zeabur.app AUTH_PASSWORD=你的密码 npm start
    ```
+
+## Docker 说明
+Helper 会自动拉取 `svftools/software-security-analysis:latest` 镜像，并根据前端选择的分类（Assignment/Lab）将文件挂载到容器内的指定路径：
+- **Assignment-1**: `/home/SVF-tools/Software-Security-Analysis/Assignment-1/CPP/Assignment_1.cpp`
+- **Lab-1**: `/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-1/CPP/GraphAlgorithm.cpp`
+- (以此类推...)
+
+挂载后，Helper 会在对应目录下执行 `make` 命令，并将输出结果实时传回网页端。
 
 ---
 

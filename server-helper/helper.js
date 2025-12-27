@@ -1,6 +1,7 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { exec } = require('child_process');
 require('dotenv').config();
 
 // Configuration
@@ -9,6 +10,16 @@ const ZEABUR_URL = args[0] || process.env.ZEABUR_URL || 'http://localhost:3000';
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD || 'secret123';
 const DOWNLOAD_DIR = path.join(__dirname, 'downloads');
 const POLL_INTERVAL = 5000; // 5 seconds
+
+// Category to Container Path Mapping
+const CATEGORY_MAP = {
+    'Assignment-1': '/home/SVF-tools/Software-Security-Analysis/Assignment-1/CPP/Assignment_1.cpp',
+    'Assignment-2': '/home/SVF-tools/Software-Security-Analysis/Assignment-2/CPP/Assignment_2.cpp',
+    'Assignment-3': '/home/SVF-tools/Software-Security-Analysis/Assignment-3/CPP/Assignment_3.cpp',
+    'Lab-1': '/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-1/CPP/GraphAlgorithm.cpp',
+    'Lab-2': '/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-2/CPP/Z3Examples.cpp',
+    'Lab-3': '/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-3/CPP/AEMgr.cpp'
+};
 
 // Task Queue State
 let activeTasks = 0;
@@ -72,14 +83,13 @@ async function processFile(filename) {
         });
         console.log(`Downloaded and cleared from server: ${filename}`);
 
-        // 3. TODO: Launch Docker Container here
-        console.log(`Simulating Docker run for 10 seconds...`);
-        await new Promise(resolve => setTimeout(resolve, 10000)); 
+        // 3. Launch Docker Container and Compile
+        console.log(`Launching Docker for ${category}...`);
+        const result = await runDockerTask(localPath, category);
         
         // 4. Send Result back to Zeabur
-        const mockResult = `Compilation Successful for ${originalName}!\nCategory: ${category}\nOutput: [Mock SSA Code Block] ... done.`;
         await axios.post(`${ZEABUR_URL}/result/${filename}`, {
-            result: mockResult
+            result: result
         }, {
             headers: { 'x-auth-password': AUTH_PASSWORD }
         });
@@ -88,10 +98,53 @@ async function processFile(filename) {
 
     } catch (error) {
         console.error(`Error processing ${filename}:`, error.message);
+        // Try to send error to frontend if possible
+        try {
+            await axios.post(`${ZEABUR_URL}/result/${filename}`, {
+                result: `System Error: ${error.message}`
+            }, { headers: { 'x-auth-password': AUTH_PASSWORD } });
+        } catch(e) {}
     } finally {
         activeTasks--;
         pendingFiles.delete(filename);
     }
+}
+
+/**
+ * Executes the SVF Docker container with the uploaded file
+ */
+function runDockerTask(localPath, category) {
+    const targetInContainer = CATEGORY_MAP[category];
+    if (!targetInContainer) {
+        return Promise.resolve(`Error: No mapping found for category ${category}`);
+    }
+
+    // Determine the build command. Usually, we cd to the directory and run make.
+    const containerDir = path.dirname(targetInContainer);
+    const buildCmd = `cd ${containerDir} && make`; 
+
+    // Use sudo if configured in environment
+    const sudoPrefix = process.env.USE_SUDO === 'true' ? 'sudo ' : '';
+    
+    // Docker command:
+    // --rm: remove container after run
+    // -v: mount local file to target path in container (read-only)
+    const dockerCmd = `${sudoPrefix}docker run --rm -v "${localPath}:${targetInContainer}:ro" svftools/software-security-analysis:latest /bin/bash -c "${buildCmd}"`;
+
+    return new Promise((resolve) => {
+        console.log(`Running: ${dockerCmd}`);
+        exec(dockerCmd, (error, stdout, stderr) => {
+            let output = "";
+            if (stdout) output += stdout;
+            if (stderr) output += "\nError/Stderr:\n" + stderr;
+            
+            if (error) {
+                resolve(`Execution Failed:\n${output}\n\nInternal Error: ${error.message}`);
+            } else {
+                resolve(`Execution Success:\n${output}`);
+            }
+        });
+    });
 }
 
 // Polling and downloading function

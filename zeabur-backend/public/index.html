@@ -109,7 +109,7 @@
                     text.innerText = 'Connected with Docker Engine Server';
                 } else {
                     light.className = 'indicator disconnected';
-                    text.innerText = 'Disconnected';
+                    text.innerText = 'Disconnected from Docker server, please contact TA team';
                 }
             } catch (e) {
                 console.error('Failed to fetch status', e);
