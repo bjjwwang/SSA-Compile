@@ -27,6 +27,8 @@
         #upload-view, #processing-view { display: none; }
         #upload-view.active, #processing-view.active { display: block; }
         
+        .result-area { margin-top: 20px; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 6px; text-align: left; white-space: pre-wrap; font-family: monospace; font-size: 13px; display: none; max-height: 300px; overflow-y: auto; }
+        
         .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 2s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
@@ -68,9 +70,13 @@
             <h3 id="proc-filename">filename.c</h3>
             <div id="proc-category" class="category-badge">Assignment-1</div>
             
-            <div class="loading-spinner"></div>
-            <p><strong>Server is launching docker container and compiling...</strong></p>
-            <p class="info-text">Please wait for the results. This might take a minute.</p>
+            <div id="loading-container">
+                <div class="loading-spinner"></div>
+                <p><strong>Server is launching docker container and compiling...</strong></p>
+                <p class="info-text">Please wait for the results. This might take a minute.</p>
+            </div>
+
+            <div id="result-container" class="result-area"></div>
             
             <button class="btn btn-secondary" onclick="goBack()">Cancel / Go Back</button>
         </div>
@@ -78,6 +84,8 @@
 
     <script>
         let selectedCategory = null;
+        let pollingInterval = null;
+        let currentUploadedFilename = null;
 
         // Tab selection logic
         document.getElementById('categoryTabs').addEventListener('click', (e) => {
@@ -136,7 +144,9 @@
                 const data = await res.json();
                 
                 if (res.ok) {
+                    currentUploadedFilename = data.filename;
                     showProcessing(file.name, selectedCategory);
+                    startPollingResult(data.filename);
                 } else {
                     message.innerText = 'Upload failed: ' + (data.error || 'Unknown error');
                 }
@@ -150,14 +160,43 @@
             document.getElementById('processing-view').classList.add('active');
             document.getElementById('proc-filename').innerText = filename;
             document.getElementById('proc-category').innerText = category;
+            
+            // Reset UI
+            document.getElementById('loading-container').style.display = 'block';
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('result-container').innerText = '';
+        }
+
+        function startPollingResult(filename) {
+            if (pollingInterval) clearInterval(pollingInterval);
+            
+            pollingInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/result/${filename}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        displayResult(data.content);
+                        clearInterval(pollingInterval);
+                    }
+                } catch (e) {
+                    console.error('Polling result error', e);
+                }
+            }, 3000);
+        }
+
+        function displayResult(content) {
+            document.getElementById('loading-container').style.display = 'none';
+            const resultBox = document.getElementById('result-container');
+            resultBox.style.display = 'block';
+            resultBox.innerText = content;
         }
 
         function goBack() {
-            if (confirm('Are you sure you want to abandon this submission?')) {
+            if (confirm('Are you sure you want to abandon this session?')) {
+                if (pollingInterval) clearInterval(pollingInterval);
                 document.getElementById('processing-view').classList.remove('active');
                 document.getElementById('upload-view').classList.add('active');
                 document.getElementById('message').innerText = '';
-                // Optional: In a real app, you might want to notify the server to cancel the task
             }
         }
 

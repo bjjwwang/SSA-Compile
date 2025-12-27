@@ -75,7 +75,16 @@ async function processFile(filename) {
         // 3. TODO: Launch Docker Container here
         console.log(`Simulating Docker run for 10 seconds...`);
         await new Promise(resolve => setTimeout(resolve, 10000)); 
-        console.log(`[Task Finished] ${filename}`);
+        
+        // 4. Send Result back to Zeabur
+        const mockResult = `Compilation Successful for ${originalName}!\nCategory: ${category}\nOutput: [Mock SSA Code Block] ... done.`;
+        await axios.post(`${ZEABUR_URL}/result/${filename}`, {
+            result: mockResult
+        }, {
+            headers: { 'x-auth-password': AUTH_PASSWORD }
+        });
+        
+        console.log(`[Task Finished] Result sent to server for ${filename}`);
 
     } catch (error) {
         console.error(`Error processing ${filename}:`, error.message);

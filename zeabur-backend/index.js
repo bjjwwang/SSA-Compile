@@ -17,6 +17,9 @@ app.use(express.static('public'));
 const lastUploads = new Map(); // IP -> timestamp
 const UPLOAD_COOLDOWN = 3 * 60 * 1000; // 3 minutes
 
+// Task Results Storage
+const taskResults = new Map(); // filename -> result string
+
 // Storage for uploaded files
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -132,6 +135,30 @@ app.delete('/file/:filename', authenticate, (req, res) => {
         res.json({ message: 'File deleted' });
     } else {
         res.status(404).json({ error: 'File not found' });
+    }
+});
+
+// Endpoint for Helper to submit results
+app.post('/result/:filename', authenticate, (req, res) => {
+    const { filename } = req.params;
+    const { result } = req.body;
+    console.log(`Result received for ${filename}`);
+    taskResults.set(filename, {
+        content: result,
+        timestamp: Date.now()
+    });
+    res.json({ status: 'ok' });
+});
+
+// Endpoint for Frontend to poll for results
+app.get('/result/:filename', (req, res) => {
+    const { filename } = req.params;
+    if (taskResults.has(filename)) {
+        res.json(taskResults.get(filename));
+        // Optionally delete result after it's retrieved to save memory
+        // taskResults.delete(filename); 
+    } else {
+        res.status(404).json({ status: 'pending' });
     }
 });
 
