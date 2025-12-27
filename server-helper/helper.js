@@ -13,12 +13,30 @@ const POLL_INTERVAL = 5000; // 5 seconds
 
 // Category to Container Path Mapping
 const CATEGORY_MAP = {
-    'Assignment-1': '/home/SVF-tools/Software-Security-Analysis/Assignment-1/CPP/Assignment_1.cpp',
-    'Assignment-2': '/home/SVF-tools/Software-Security-Analysis/Assignment-2/CPP/Assignment_2.cpp',
-    'Assignment-3': '/home/SVF-tools/Software-Security-Analysis/Assignment-3/CPP/Assignment_3.cpp',
-    'Lab-1': '/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-1/CPP/GraphAlgorithm.cpp',
-    'Lab-2': '/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-2/CPP/Z3Examples.cpp',
-    'Lab-3': '/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-3/CPP/AEMgr.cpp'
+    'Assignment-1': {
+        path: '/home/SVF-tools/Software-Security-Analysis/Assignment-1/CPP/Assignment_1.cpp',
+        test: 'ctest -R ass1'
+    },
+    'Assignment-2': {
+        path: '/home/SVF-tools/Software-Security-Analysis/Assignment-2/CPP/Assignment_2.cpp',
+        test: 'ctest -R ass2'
+    },
+    'Assignment-3': {
+        path: '/home/SVF-tools/Software-Security-Analysis/Assignment-3/CPP/Assignment_3.cpp',
+        test: 'ctest -R ass3'
+    },
+    'Lab-1': {
+        path: '/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-1/CPP/GraphAlgorithm.cpp',
+        test: 'ctest -R lab1'
+    },
+    'Lab-2': {
+        path: '/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-2/CPP/Z3Examples.cpp',
+        test: 'ctest -R lab2'
+    },
+    'Lab-3': {
+        path: '/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-3/CPP/AEMgr.cpp',
+        test: 'ctest -R lab3'
+    }
 };
 
 // Task Queue State
@@ -141,14 +159,22 @@ async function processFile(filename) {
  * Executes the SVF Docker container with the uploaded file
  */
 function runDockerTask(localPath, category) {
-    const targetInContainer = CATEGORY_MAP[category];
-    if (!targetInContainer) {
+    const config = CATEGORY_MAP[category];
+    if (!config) {
         return Promise.resolve(`Error: No mapping found for category ${category}`);
     }
 
-    // Determine the build command. Usually, we cd to the directory and run make.
-    const containerDir = path.dirname(targetInContainer);
-    const buildCmd = `cd ${containerDir} && make`; 
+    const targetInContainer = config.path;
+    const testCmd = config.test;
+
+    // All builds happen in /home/SVF-tools/Software-Security-Analysis
+    const buildRoot = '/home/SVF-tools/Software-Security-Analysis';
+    
+    // Command sequence:
+    // 1. Enter build root
+    // 2. Run make (compile)
+    // 3. IF make succeeds (&&), run the specific ctest
+    const fullCommand = `cd ${buildRoot} && make && ${testCmd}`; 
 
     // Use sudo if configured in environment
     const sudoPrefix = process.env.USE_SUDO === 'true' ? 'sudo ' : '';
@@ -156,7 +182,7 @@ function runDockerTask(localPath, category) {
     // Docker command:
     // --rm: remove container after run
     // -v: mount local file to target path in container (read-only)
-    const dockerCmd = `${sudoPrefix}docker run --rm -v "${localPath}:${targetInContainer}:ro" svftools/software-security-analysis:latest /bin/bash -c "${buildCmd}"`;
+    const dockerCmd = `${sudoPrefix}docker run --rm -v "${localPath}:${targetInContainer}:ro" svftools/software-security-analysis:latest /bin/bash -c "${fullCommand}"`;
 
     return new Promise((resolve) => {
         console.log(`Running: ${dockerCmd}`);
@@ -166,7 +192,8 @@ function runDockerTask(localPath, category) {
             if (stderr) output += "\nError/Stderr:\n" + stderr;
             
             if (error) {
-                resolve(`Execution Failed:\n${output}\n\nInternal Error: ${error.message}`);
+                // If it fails, output will contain why (compilation error or test failure)
+                resolve(`Execution Failed (Compilation or Tests):\n${output}\n\nInternal Error: ${error.message}`);
             } else {
                 resolve(`Execution Success:\n${output}`);
             }
