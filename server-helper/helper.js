@@ -2,6 +2,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const cron = require('node-cron');
 require('dotenv').config();
 
 // Configuration
@@ -15,29 +16,42 @@ const POLL_INTERVAL = 5000; // 5 seconds
 const CATEGORY_MAP = {
     'Assignment-1': {
         path: '/home/SVF-tools/Software-Security-Analysis/Assignment-1/CPP/Assignment_1.cpp',
-        test: 'ctest -R ass1'
+        test: 'ctest --timeout 5 -R ass1-pta-cpp && ctest --timeout 5 -R ass1-icfg-cpp && ctest --timeout 5 -R ass1-taint-cpp'
     },
     'Assignment-2': {
         path: '/home/SVF-tools/Software-Security-Analysis/Assignment-2/CPP/Assignment_2.cpp',
-        test: 'ctest -R ass2'
+        test: 'ctest --timeout 5 -R ass2-cpp'
     },
     'Assignment-3': {
         path: '/home/SVF-tools/Software-Security-Analysis/Assignment-3/CPP/Assignment_3.cpp',
-        test: 'ctest -R ass3'
+        test: 'ctest --timeout 5 -R ass3-ae-cpp && ctest --timeout 5 -R ass3-buf-cpp'
     },
     'Lab-1': {
         path: '/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-1/CPP/GraphAlgorithm.cpp',
-        test: 'ctest -R lab1'
+        test: 'ctest --timeout 5 -R lab1'
     },
     'Lab-2': {
         path: '/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-2/CPP/Z3Examples.cpp',
-        test: 'ctest -R lab2'
+        test: 'ctest --timeout 5 -R lab2'
     },
     'Lab-3': {
         path: '/home/SVF-tools/Software-Security-Analysis/Lab-Exercise-3/CPP/AEMgr.cpp',
-        test: 'ctest -R lab3'
+        test: 'ctest --timeout 5 -R lab3'
     }
 };
+
+// Scheduled Task: Pull latest Docker image every day at 4 AM
+cron.schedule('0 4 * * *', () => {
+    console.log('Scheduled Task: Pulling latest SVF Docker image...');
+    const sudoPrefix = process.env.USE_SUDO === 'true' ? 'sudo ' : '';
+    exec(`${sudoPrefix}docker pull svftools/software-security-analysis:latest`, (err, stdout, stderr) => {
+        if (err) {
+            console.error('Scheduled pull failed:', err.message);
+        } else {
+            console.log('Docker pull successful:', stdout);
+        }
+    });
+});
 
 // Task Queue State
 let activeTasks = 0;
